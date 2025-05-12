@@ -1,0 +1,13 @@
+[project]
+name = "mlflow"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "mlflow",
+    "psycopg2-binary>=2.9.10",
+]
+
+[tool.uv.sources]
+mlflow = { workspace = true }

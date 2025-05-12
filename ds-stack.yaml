@@ -1,0 +1,91 @@
+services:
+  postgres:
+    image: postgres:latest
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${MLFLOW_POSTGRES_DB}
+    ports:
+      - "5432:5432"
+    volumes:
+      - ./postgres-data:/var/lib/postgresql/data
+    networks:
+      - mlops
+
+  minio:
+    image: minio/minio
+    expose:
+      - "9000"
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    environment:
+      MINIO_ROOT_USER: ${S3_ACCESS_KEY}
+      MINIO_ROOT_PASSWORD: ${S3_SECRET_KEY}
+    healthcheck:
+      test: timeout 5s bash -c ':> /dev/tcp/127.0.0.1/9000' || exit 1
+      interval: 1s
+      timeout: 10s
+      retries: 5
+    command: server /data --console-address ":9001"
+    volumes:
+      - ./minio-data:/data
+    networks:
+      - mlops
+
+  minio-create-bucket:
+    image: minio/mc
+    depends_on:
+      - minio
+    environment:
+      MINIO_ROOT_USER: ${S3_ACCESS_KEY}
+      MINIO_ROOT_PASSWORD: ${S3_SECRET_KEY}
+    entrypoint: >
+      bash -c "
+      mc alias set minio http://minio:9000 ${S3_ACCESS_KEY} ${S3_SECRET_KEY} &&
+      if ! mc ls minio/bucket; then
+        mc mb minio/bucket
+      else
+        echo 'bucket already exists'
+      fi
+      "
+
+  mlflow:
+    build:
+      context: ./mlflow
+      dockerfile: Dockerfile
+    image: mlflow-server
+    container_name: mlflow-server 
+    command:
+    environment:
+      AWS_ACCESS_KEY_ID: ${S3_ACCESS_KEY}
+      AWS_SECRET_ACCESS_KEY: ${S3_SECRET_KEY}
+      MLFLOW_S3_ENDPOINT_URL: http://minio:9000
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.mlflow.rule=Host(`mlflow.${DOMAIN}`)"
+      - "traefik.http.routers.mlflow.tls=true"
+      - "traefik.http.routers.mlflow.entrypoints=websecure"
+      - "traefik.http.routers.mlflow.tls.certresolver=cloudflare"
+      - "traefik.http.services.mlflow.loadbalancer.server.port=5000"
+    depends_on:
+      - postgres
+      - minio
+
+    networks:
+      - proxy
+      - mlops
+
+  
+
+volumes:
+  minio-data:
+  postgres-data:
+
+networks:
+  proxy:
+    external: true
+  mlops:
+    driver: bridge

@@ -1,27 +1,36 @@
-create_network:
-	@docker network create --driver bridge proxy
+init_swarm:
+	@docker swarm init
 
-run_ds:
-	@docker-compose -f ds-stack.yaml up
+	@docker network create --driver overlay --attachable --scope swarm proxy
 
 run_proxy:
-	@docker-compose -f proxy-stack.yaml up
+	@docker stack deploy -c proxy-stack.yaml proxy --with-registry-auth --resolve-image=always --prune --detach
+
+run_ds:
+	@docker stack deploy -c ds-stack.yaml ds --with-registry-auth --resolve-image=always --prune --detach
+
+check:
+	@docker stack services proxy
+	@docker stack services ds
+
+	@docker service ls
 
 run_all:
-	@docker network create --driver bridge proxy
-	@docker-compose -f ds-stack.yaml up -d
-	@docker-compose -f proxy-stack.yaml up -d
+	@make init_swarm
+	@make run_proxy
+	@make run_ds
+	@make check
 
 clean:
-	@docker-compose -f ds-stack.yaml down
-	@docker volume rm $(shell docker volume ls -q)
-	@docker-compose -f proxy-stack.yaml down
-	@docker network rm $(shell docker network ls -q)
-	@docker network prune -f
-	@docker system prune -f
-	@docker rmi $(shell docker images -q)
-	@docker ps
-	@rm -rf /postgres-data
-	@rm -rf /minio-data
-	@echo "Cleaned up all Docker resources."
+	@docker stack rm ds
+	@docker stack rm proxy
+	@docker network rm proxy
+	@docker swarm leave --force
+	@docker rmi $(shell docker images -q) || true
+	@docker volume prune -f || true
+	@docker network prune -f || true
+	@docker system prune -a -f || true
+
+	@docker volume rm ds_minio-data || true
+	@docker volume rm ds_postgres-data || true
 

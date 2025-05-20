@@ -65,12 +65,15 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       MLFLOW_POSTGRES_DB: ${MLFLOW_POSTGRES_DB}
     labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.mlflow.rule=Host(`mlflow.${DOMAIN}`)"
-      - "traefik.http.routers.mlflow.tls=true"
-      - "traefik.http.routers.mlflow.entrypoints=websecure"
-      - "traefik.http.routers.mlflow.tls.certresolver=cloudflare"
-      - "traefik.http.services.mlflow.loadbalancer.server.port=5000"
+    - "traefik.enable=true"
+    - "traefik.http.routers.mlflow.rule=Host(`mlflow.${DOMAIN}`)"
+    - "traefik.http.routers.mlflow.tls=true"
+    - "traefik.http.routers.mlflow.entrypoints=websecure"
+    - "traefik.http.routers.mlflow.tls.certresolver=cloudflare"
+    - "traefik.http.services.mlflow.loadbalancer.server.port=5000"
+    - "traefik.http.services.mlflow.loadbalancer.server.scheme=http"
+    - "traefik.docker.network=proxy"
+
     depends_on:
       - postgres
       - minio

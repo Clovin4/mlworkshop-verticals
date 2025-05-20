@@ -4,10 +4,10 @@ init_swarm:
 	@docker network create --driver overlay --attachable --scope swarm proxy
 
 run_proxy:
-	@docker stack deploy -c proxy-stack.yaml proxy --with-registry-auth --resolve-image=always --prune --detach
+	@infisical run --env=prod -- docker stack deploy -c proxy-stack.yaml proxy-stack
 
 run_ds:
-	@docker stack deploy -c ds-stack.yaml ds --with-registry-auth --resolve-image=always --prune --detach
+	@infisical run --env=prod -- docker stack deploy -c ds-stack.yaml ds-stack
 
 check:
 	@docker stack services proxy
